@@ -1,23 +1,24 @@
 ---
 name: google-vids-video-producer
 description: >
-  Google Vids (docs.google.com/videos) 獨立全自動 AI 影片製作工作流技能（官方實戰零踩坑 SOP v3.0.0）。
-  100% 獨立使用 Google Vids 內建「Omni 720p 橫式 10 秒」原生含台灣國語語音生成（不消耗 Google Flow 1,000 點額度）、單一常駐 Node.js MCP 連線極速控制、鍵盤焦點數學公式（9 + 10*(k-1)）無死角插入、1080p Full HD MP4 自動匯出、本地 CPU FFmpeg 繁體中文雙色硬字幕燒錄，以及依四大頻道分類自動歸檔至「Google Vids 影片」資料夾。
+  Google Vids (docs.google.com/videos) 獨立全自動 AI 影片製作工作流技能（官方實戰零踩坑 SOP v3.1.0）。
+  100% 獨立使用 Google Vids 內建「Omni 720p 橫式 10 秒」原生畫面生成（不消耗 Google Flow 1,000 點額度）、單一常駐 Node.js MCP 連線極速控制、鍵盤焦點數學公式（9 + 10*(k-1)）無死角插入、1080p Full HD MP4 自動匯出、100% 正統台灣國語（zh-TW-YunJheNeural 無捲舌音）自動音軌替換、本地 CPU FFmpeg 繁體中文雙色硬字幕燒錄，以及依四大頻道分類自動歸檔至「Google Vids 影片」資料夾。
   當使用者提到「Google Vids 影片」「用 Vids 做影片」「Google Vids 自動生成」「Vids 獨立生成影片」或操作 Google Vids 專案時直接載入呼叫。
 ---
 
-<!-- Version: 3.0.0 -->
+<!-- Version: 3.1.0 -->
 <!-- Changelog:
+  v3.1.0 - 解決 Google Vids Omni 原生語音具大陸捲舌音問題（新增誤區 8），後製引擎 `scripts/vids_postprocess_and_archive.py` 內建自動合成 100% 道地台灣國語（Microsoft edge-tts `zh-TW-YunJheNeural` 雲哲 / `zh-TW-HsiaoChenNeural` 曉臻），以毫秒級精度替換大陸捲舌聲音軌，徹底確保成片為正統台灣腔。
   v3.0.0 - 完整收錄實戰 7 大踩坑誤區與終極解法（Pitfalls & Fixes Matrix）、建立標準化單一常駐連線極速腳本 `scripts/vids_fast_autopilot.mjs`（完全不呼叫逐次 Tab 的 `vids_observe`，插入耗時從 295 秒降至 1.8 秒）、Windows 非 C 槽 ACL 權限修補腳本 `scripts/patch_windows_acl.py` 與自動雙色硬字幕暨四大分類歸檔腳本 `scripts/vids_postprocess_and_archive.py`，並打包為獨立 GitHub Repo。
   v2.1.0 - 新增『Google Vids 影片』四大頻道分類歸檔規範（［手作科學］、［國小自然］、［大識界 開眼界］、［AI 自學筆記］）。
   v2.0.0 - 實戰驗證升級：確認 Omni 720p 橫式 10 秒含台灣國語配音規格、單一常駐 Node.js MCP 連線與 Tab 焦點公式。
   v1.0.0 - Initial release of standalone Google Vids AI Video Producer skill.
 -->
 
-# Google Vids 獨立全自動 AI 影片生產線技能 (v3.0.0 實戰零踩坑標準作業程序)
+# Google Vids 獨立全自動 AI 影片生產線技能 (v3.1.0 實戰零踩坑標準作業程序)
 
 本技能為**「100% 單純使用 Google Vids (`docs.google.com/videos`) 獨立產出完整 1080p 有聲成片」**的端到端自動化標準作業程序（SOP）。
-不消耗 Google Flow 每月 1,000 點額度，亦不消耗 Colab GPU 算力，直接使用 **Google AI Pro (Gemini Pro) 帳號於 Google Vids 內建之每日免費 AI 短片配額（`Omni 720p 橫式 10 秒`，原生支援台灣國語旁白生成）**，並於匯出時由 Google Vids 時間軸自動升頻輸出為 **1920×1080 (1080p 30fps H.264 + AAC) MP4**，最後在本地以 0 算力 FFmpeg 燒錄繁體中文雙色硬字幕並按頻道四大分類自動歸檔。
+不消耗 Google Flow 每月 1,000 點額度，亦不消耗 Colab GPU 算力，直接使用 **Google AI Pro (Gemini Pro) 帳號於 Google Vids 內建之每日免費 AI 短片配額（`Omni 720p 橫式 10 秒`）**，並於匯出時由 Google Vids 時間軸自動升頻輸出為 **1920×1080 (1080p 30fps H.264) MP4**，最後在本地後製管線自動注入 **100% 正統台灣國語神經語音（徹底杜絕大陸捲舌音）**，以 0 算力 FFmpeg 燒錄繁體中文雙色硬字幕並按頻道四大分類自動歸檔。
 
 ---
 
@@ -26,16 +27,16 @@ description: >
 | 維度 | 實測驗證規格 |
 | :--- | :--- |
 | **生成模型與時長** | Google Vids 右側欄「生成 AI 短片」預設採用 **`生成設定：Omni 720p 橫式 10 秒`**（單鏡固定 **10.0 秒**，非舊版 8 秒；5 鏡合計 `00:50.2`）。 |
-| **原生台灣國語旁白** | **支援原生同步口播！** 只需在英文視覺提示詞末尾加上：<br>`Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「（約 28～35 字繁體中文台詞）」`<br>模型即會在 10 秒畫面中同步生成清晰自然的台灣國語旁白音軌（AAC），無需額外對軌。 |
+| **語音腔調鐵律** | **100% 正統台灣國語（嚴禁大陸捲舌音）**：Google Vids 多模態原生生成的語音常混雜普通話捲舌與兒化音。因此一律由後製管線 `scripts/vids_postprocess_and_archive.py` 自動呼叫 Microsoft Edge TTS（`zh-TW-YunJheNeural` 雲哲 男聲 / `zh-TW-HsiaoChenNeural` 曉臻 女聲）合成最道地無捲舌的台灣國語音軌，毫秒級對齊每鏡 10.0 秒替換。 |
 | **匯出解析度與編碼** | 雖然單鏡預覽標示 720p，但插入時間軸後點選 `檔案 -> 下載 -> MP4 影片 (.mp4)` 匯出之成品為標準 **1920×1080 (Full HD 1080p), 30fps, H.264 (~3.86 Mbps) + AAC 立體聲**。 |
 | **內建進階卡片工具** | 每張生成的影片結果卡片皆自帶 5 個原生動作按鈕：**`插入`**、**`延長`**、**`編輯`**、**`畫質提升`**、**`重新生成`**。 |
 | **最終歸檔總目錄** | 凡經由 Google Vids 生成與後製完成之影片，一律依四大頻道分類自動歸檔至：<br>`d:\2026antigravity\Google Vids 影片\<頻道分類>\<專案名稱>\`<br>（四大固定分類：`［手作科學］`、`［國小自然］`、`［大識界 開眼界］`、`［AI 自學筆記］`） |
 
 ---
 
-## 2. 實戰踩過的 7 大誤區與終極解法（Mandatory Pitfalls & Fixes）
+## 2. 實戰踩過的 8 大誤區與終極解法（Mandatory Pitfalls & Fixes）
 
-在自動化控制 Google Vids 的過程中，我們親身踩過以下 **7 個嚴重誤區**。所有後續任務與 Agent **必須嚴格遵守對應解法，嚴禁重蹈覆轍**：
+在自動化控制 Google Vids 的過程中，我們親身踩過以下 **8 個嚴重誤區**。所有後續任務與 Agent **必須嚴格遵守對應解法，嚴禁重蹈覆轍**：
 
 ### ❌ 誤區 1：使用獨立 Headless / Playwright 新設定檔直接開 `docs.google.com/videos`
 * **問題現象**：Google Workspace 對自動化無頭瀏覽器有極嚴格的登入風控，且新開視窗不在使用者目光焦點內，使用者會看到「沒有幫我開啟畫面」或卡在 Google 雙重驗證。
@@ -75,24 +76,16 @@ description: >
      - **從提示詞輸入框送出生成**：
        - 對 `textbox 請描述影片內容...` 執行 `vids_type_text` 後，焦點在輸入框上，只需按 `Tab` **5 次**即到達 `button 生成` $\rightarrow$ 按 `Enter` 送出！
      - **定位第 $k$ 部生成的影片並點擊「插入」**（在提示詞框收合狀態下，從 `tab 建立` 出發）：
-       - `Tab 1`：`button 展開`
-       - `Tab 2`：`button Gemini 版 Workspace 可能會出錯。`
-       - `Tab 3`：`button 顯示範例庫`
-       - `Tab 4`：`button 關閉側邊功能表`
-       - **`Tab 5`**：**第 1 部生成的影片卡片 (`S01`)**
-         - `Tab 6`：`這項建議很實用`
-         - `Tab 7`：`這項建議不實用`
-         - `Tab 8`：`取消靜音`
-         - **`Tab 9`**：**第 1 部影片的 `button 插入`**！
-         - `Tab 10`：`延長` | `Tab 11`：`編輯` | `Tab 12`：`畫質提升` | `Tab 13`：`重新生成` | `Tab 14`：`更多動作`
-       - **`Tab 15`**：**第 2 部生成的影片卡片 (`S02`)** $\rightarrow$ **`Tab 19`** 為第 2 部影片的 **`button 插入`**！
-       - **`Tab 25`**：**第 3 部生成的影片卡片 (`S03`)** $\rightarrow$ **`Tab 29`** 為第 3 部影片的 **`button 插入`**！
-       - **通式**：第 $k$ 部生成影片卡片位於 **`Tab` 第 $5 + 10(k-1)$ 步**，其專屬 **`插入` 按鈕**位於 **`Tab` 第 $9 + 10(k-1)$ 步**！
-     - **極速執行法**：在找出目標影片是清單中的第 $k$ 張卡片後（只需呼叫 **1 次** `vids_observe` 過濾 `role=="button" && name.startsWith("生成的影片：")` 的陣列索引 `idx`，其中 $k = \text{idx} + 1$），或直接聚焦該影片卡片，再**只在最後確認 `插入` 時檢查一次**，徹底省去中間 30～40 次無謂的 `vids_observe` 全頁掃描！
+       - 通式：第 $k$ 部生成影片卡片位於 **`Tab` 第 $5 + 10(k-1)$ 步**，其專屬 **`插入` 按鈕**位於 **`Tab` 第 $9 + 10(k-1)$ 步**！
+     - **極速執行法**：直接找出目標影片是清單中的第 $k$ 張卡片後（只需呼叫 **1 次** `vids_observe`），直接計算出目標步數並以極輕量模式快速跳轉，最後只在驗證 `插入` 時檢查一次，徹底省去中間 30～40 次無謂的全頁掃描！
 
 ### ❌ 誤區 7：假設生成片段為 8 秒，導致本地 `subtitles.ass` 字幕時間軸在 40 秒提前結束
 * **問題現象**：舊版 Veo 為 8 秒，但目前 Google AI Pro 在 Google Vids 內建的是 **`Omni 720p 橫式 10 秒`**，每鏡插入時間軸後實測長度為 **10.0 秒**（5 鏡匯出 MP4 總長為 `50.22 秒`）。若字幕按 8 秒排，第 40～50 秒會沒有字幕且前段逐鏡錯位 2 秒。
-* **✅ 正確解法**：撰寫 `subtitles.ass` 與旁白字數時，嚴格以 **每鏡 10.0 秒**（`00:00.30 ~ 00:09.60`、`00:10.30 ~ 00:19.60`...）對齊，或由 `scripts/vids_postprocess_and_archive.py` 透過 `ffprobe` 自動讀取成片真實總長與場景數動態對齊字幕區間！
+* **✅ 正確解法**：撰寫 `subtitles.ass` 與旁白字數時，嚴格以 **每鏡 10.0 秒**（`00:00.30 ~ 00:09.60`、`00:10.30 ~ 00:19.60`...）對齊。
+
+### ❌ 誤區 8：Google Vids 原生生成的語音具大陸捲舌音（普通話腔調）
+* **問題現象**：在提示詞中雖然寫入 `Taiwanese Mandarin (zh-TW) voiceover`，但 Google 多模態神經模型（Omni/Veo）主要以標準普通話資料集訓練，生成的中文發音依然帶有顯著的大陸捲舌音（兒化音、重平舌捲舌音調），不符合台灣教學與 YouTube 觀眾習慣。
+* **✅ 正確解法**：由後製腳本 `scripts/vids_postprocess_and_archive.py` 內建自動合成 100% 正統台灣國語神經語音（Microsoft `edge-tts` 的 `zh-TW-YunJheNeural` 雲哲 或 `zh-TW-HsiaoChenNeural` 曉臻），在 FFmpeg 壓制字幕時直接將原帶有捲舌音的音軌無損替換為溫和自然、完全無捲舌音的台灣國語主音軌，產出真正符合台灣教育與科普標準的成片！
 
 ---
 
@@ -105,7 +98,8 @@ description: >
 - `scenes`：陣列，每鏡包含：
   - `id`：如 `"S01"`
   - `match_prefix`：英文提示詞前 35～45 字元（供從 `生成的影片：...` 清單中 100% 精準比對第 $k$ 張卡片）
-  - `prompt`：完整 Omni 10 秒提示詞（含英文視覺描述 + `no text` + `Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「...」`）
+  - `prompt`：完整 Omni 10 秒提示詞
+  - `narration_zh`：繁體中文旁白台詞（約 26～34 字）
   - `subtitles`：2 段時間碼對齊該 10 秒區間（`0.3s ~ 4.8s` 與 `4.9s ~ 9.6s`）的繁體中文雙色字幕（重點關鍵詞加上 `{\c&H0000EAFF&}關鍵詞{\c&H00FFFFFF&}` 亮金黃色標記）。
 
 ### 步驟 2：配對並取得 Google Vids 分頁控制權（Session Handshake）
@@ -116,23 +110,15 @@ description: >
 ```powershell
 node "d:\2026antigravity\.agents\skills\google-vids-video-producer\scripts\vids_fast_autopilot.mjs" --manifest "<manifest路徑>" --state "<.vids_session_state.json路徑>"
 ```
-此腳本會自動完成：
-1. 自動檢查並修復 `RECONCILIATION_REQUIRED`（若有）。
-2. 自動開啟右側「生成 AI 短片」面板。
-3. 依序針對第 $1 \dots N$ 鏡：
-   - 選取或新增時間軸上的 `場景 i`。
-   - 若該鏡尚未生成，展開提示詞框、填入含台灣國語台詞之 Prompt、送出生成，並每 5 秒輪詢一次直到該鏡卡片出現（每鏡雲端算圖約 35～45 秒）。
-   - 直接從單次 `vids_observe` 找出目標影片卡片的 `ref`，並透過極速焦點跳轉按下該卡片專屬的 **`插入`** 按鈕！
-4. 全數場景插入完畢後，自動點擊 `menuitem 檔案` $\rightarrow$ `menuitem 下載 d ►` $\rightarrow$ `menuitem MP4 影片 (.mp4) d`，觸發 1080p MP4 匯出下載！
 
-### 步驟 4：執行 1080p 繁中雙色硬字幕壓制與四大分類自動歸檔
-當 MP4 下載至專案資料夾（或 `d:\2026antigravity\Google Vids 影片`）後，執行：
+### 步驟 4：執行 100% 台灣國語音軌替換、雙色硬字幕壓制與四大分類自動歸檔
+當 MP4 下載至專案資料夾後，執行：
 ```powershell
 python "d:\2026antigravity\.agents\skills\google-vids-video-producer\scripts\vids_postprocess_and_archive.py" --manifest "<manifest路徑>" --mp4 "<下載的MP4路徑>"
 ```
 此腳本會自動：
-1. 使用 `ffprobe` 驗證 1920×1080 解析度、音軌與總時長。
-2. 備份 `<專案名稱>_純淨無字幕版.mp4`。
-3. 生成時間碼 100% 對齊每鏡 10.0 秒的 `subtitles.ass` 並透過 `ffmpeg -vf ass=subtitles.ass -c:v libx264 -crf 18 -c:a copy` 燒錄出 `<專案名稱>.mp4`（內嵌繁中雙色硬字幕正式版）。
+1. 自動以 `zh-TW-YunJheNeural`（雲哲）合成道地台灣國語主音軌（無任何大陸捲舌音）。
+2. 替換原始帶有普通話捲舌音的音軌，產出 `<專案名稱>_純淨無字幕版.mp4`（1080p 台灣國語母帶版）。
+3. 生成時間碼 100% 對齊每鏡 10.0 秒的 `subtitles.ass` 並燒錄出 `<專案名稱>.mp4`（1080p 內嵌繁中雙色硬字幕正式版）。
 4. 產出含分類前綴標題、資訊欄與雙格式 Tags 的 `YouTube發布資訊_<專案名稱>.txt`。
 5. 自動將全套成果複製歸檔至 **`d:\2026antigravity\Google Vids 影片\<youtube_category>\<專案名稱>\`**！
