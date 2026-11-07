@@ -1,0 +1,12 @@
+# Sensitive session tokens & local state
+.vids_session_state.json
+*.local.json
+.env
+
+# Large media & caches
+*.mp4
+*.mp3
+*.wav
+__pycache__/
+node_modules/
+debug_snapshots/

@@ -1,0 +1,54 @@
+{
+  "version": "3.0.0",
+  "project_title": "01_GoogleVids獨立生成測試_表面張力奇觀",
+  "youtube_category": "［手作科學］",
+  "creation_mode": "omni_10s_native_zh_tw",
+  "clip_duration_sec": 10.0,
+  "scenes": [
+    {
+      "id": "S01",
+      "match_prefix": "Extreme macro photorealistic slow-motion",
+      "prompt": "Extreme macro photorealistic slow-motion shot of a crystal-clear water droplet landing and trembling like a spherical jewel on a hydrophobic green lotus leaf, morning sunlight refraction, 16:9 cinematic lighting, no on-screen text. Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「你有沒有想過，為什麼荷葉上的水珠總是圓滾滾的？這其實是水的表面張力在發威！」",
+      "subtitles": [
+        "你有沒有想過，為什麼荷葉上的水珠總是圓滾滾的？",
+        "這其實是水的{\\c&H0000EAFF&}表面張力{\\c&H00FFFFFF&}在發威！"
+      ]
+    },
+    {
+      "id": "S02",
+      "match_prefix": "Close-up wildlife macro cinematography",
+      "prompt": "Close-up wildlife macro cinematography of a water strider insect standing on a calm reflective pond surface, visible tiny dimples pressed into the water tension skin under its legs, golden hour, 16:9, no text. Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「水分子彼此緊緊互相拉扯，讓水面就像繃緊的彈性薄膜，連水黽都能在上面輕鬆漫步。」",
+      "subtitles": [
+        "水分子彼此緊緊互相拉扯，讓水面就像繃緊的{\\c&H0000EAFF&}彈性薄膜{\\c&H00FFFFFF&}",
+        "連{\\c&H0000EAFF&}水黽{\\c&H00FFFFFF&}都能在上面輕鬆漫步！"
+      ]
+    },
+    {
+      "id": "S03",
+      "match_prefix": "Laboratory macro shot inside a clear borosilicate",
+      "prompt": "Laboratory macro shot inside a clear borosilicate glass beaker filled with pure water, a silver metal paperclip floating horizontally on the water surface, visible meniscus depression around the metal wire, studio lighting, no text. Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「在實驗室裡，只要輕輕平放，連密度比水還大的金屬迴紋針，也能穩穩浮在水面上！」",
+      "subtitles": [
+        "在實驗室裡，只要輕輕平放",
+        "連密度比水還大的{\\c&H0000EAFF&}金屬迴紋針{\\c&H00FFFFFF&}，也能穩穩浮在水面上！"
+      ]
+    },
+    {
+      "id": "S04",
+      "match_prefix": "High-speed macro laboratory shot: a glass dropper",
+      "prompt": "High-speed macro laboratory shot: a glass dropper releases one amber drop of dish soap onto the water surface inside a beaker, surface ripples expand rapidly and the floating metal paperclip immediately sinks to the bottom, no text. Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「但只要滴入一滴洗碗精，界面活性劑瞬間瓦解水分子的拉力，迴紋針就會立刻沉入水底！」",
+      "subtitles": [
+        "但只要滴入一滴洗碗精，{\\c&H0000EAFF&}界面活性劑{\\c&H00FFFFFF&}瞬間瓦解水分子的拉力",
+        "迴紋針就會立刻沉入水底！"
+      ]
+    },
+    {
+      "id": "S05",
+      "match_prefix": "Cinematic macro slow-motion shot of pure water droplets",
+      "prompt": "Cinematic macro slow-motion shot of pure water droplets coalescing and merging into a smooth mirror-like water surface in a sunlit science lab, shallow depth of field, warm educational atmosphere, no text. Include a 9-second calm Taiwanese Mandarin (zh-TW) voiceover speaking clearly: 「這場看不見的分子拉鋸戰，就是自然界最迷人的表面張力奇觀，我們下次見！」",
+      "subtitles": [
+        "這場看不見的分子拉鋸戰",
+        "就是自然界最迷人的{\\c&H0000EAFF&}表面張力奇觀{\\c&H00FFFFFF&}，我們下次見！"
+      ]
+    }
+  ]
+}
