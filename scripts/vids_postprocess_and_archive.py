@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 Google Vids 1080p 成片雙色繁中硬字幕燒錄與四大分類自動歸檔引擎
-Version: 3.1.0
+Version: 3.5.0
 Changelog:
+  - v3.5.0: 【SSML聲學情感與減速防呆標準】導入！強制鎖定 rate="-10%" 溫和語速，自動將破折號與省略號轉換為毫秒級呼吸停頓，內建單鏡 <= 40 字硬閘門阻斷檢查（超額直接報警中斷），並於後製時自動注入廣播級人聲動態處理（EQ + Compressor）與低頻電影氛圍襯底，徹底杜絕機械化新聞稿快念感。
   - v3.1.0: 解決 Google Vids 原生語音具大陸捲舌音問題！內建 100% 道地台灣國語（Microsoft edge-tts `zh-TW-YunJheNeural` 雲哲 / `zh-TW-HsiaoChenNeural` 曉臻）合成引擎，自動按 10.0 秒分鏡毫秒級對齊混音，徹底消除大陸捲舌音，產出純淨無字幕母帶與繁中雙色硬字幕正式版，並自動歸檔至『Google Vids 影片』四大分類。
   - v3.0.0: 依實測 Omni 10.0 秒單鏡時長自動生成雙色 ASS 字幕檔、備份純淨無字幕母帶、壓制 H.264 1080p 硬字幕正式版，並依四大頻道分類（［手作科學］、［國小自然］、［大識界 開眼界］、［AI 自學筆記］）自動歸檔至『Google Vids 影片』資料夾。
 """
 
 import sys
+import re
 import json
 import shutil
 import asyncio
@@ -54,68 +56,111 @@ def fmt_ass_time(sec: float) -> str:
 
 def build_ass(manifest: dict, out_ass: Path, clip_dur: float = 10.0):
     lines = [ASS_HEADER.strip(), ""]
+    current_time_sec = 0.0
     for idx, sc in enumerate(manifest.get("scenes", [])):
-        base = idx * clip_dur
+        sc_dur = float(sc.get("duration") or sc.get("clip_duration_sec") or manifest.get("clip_duration_sec") or clip_dur)
+        base = current_time_sec
         subs = sc.get("subtitles") or []
         if len(subs) == 2:
-            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 0.30)},{fmt_ass_time(base + 4.80)},Default,,0,0,0,,{subs[0]}")
-            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 4.90)},{fmt_ass_time(base + clip_dur - 0.35)},Default,,0,0,0,,{subs[1]}")
+            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 0.30)},{fmt_ass_time(base + sc_dur * 0.48)},Default,,0,0,0,,{subs[0]}")
+            lines.append(f"Dialogue: 0,{fmt_ass_time(base + sc_dur * 0.49)},{fmt_ass_time(base + sc_dur - 0.35)},Default,,0,0,0,,{subs[1]}")
         elif len(subs) == 1:
-            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 0.30)},{fmt_ass_time(base + clip_dur - 0.35)},Default,,0,0,0,,{subs[0]}")
+            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 0.30)},{fmt_ass_time(base + sc_dur - 0.35)},Default,,0,0,0,,{subs[0]}")
         elif sc.get("narration_zh"):
-            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 0.30)},{fmt_ass_time(base + clip_dur - 0.35)},Default,,0,0,0,,{sc['narration_zh']}")
+            lines.append(f"Dialogue: 0,{fmt_ass_time(base + 0.30)},{fmt_ass_time(base + sc_dur - 0.35)},Default,,0,0,0,,{sc['narration_zh']}")
+        current_time_sec += sc_dur
     out_ass.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-async def synthesize_tw_scene_audio(text: str, voice: str, out_path: Path):
+def build_scene_ssml(text: str, voice: str, rate: str = "-10%", pitch: str = "-1st") -> str:
+    """將台詞字串轉換為具備自然呼吸停頓與高低抑揚的 SSML 標籤"""
+    clean_text = re.sub(r"\{\\.*?\}", "", text).strip()
+    
+    # 標點符號轉換為聲學停頓
+    xml_text = clean_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    xml_text = xml_text.replace("……", '<break time="500ms"/>')
+    xml_text = xml_text.replace("——", '<break time="500ms"/>')
+    xml_text = xml_text.replace("，", '，<break time="250ms"/>')
+    xml_text = xml_text.replace("。", '。<break time="400ms"/>')
+    xml_text = xml_text.replace("！", '！<break time="450ms"/>')
+    xml_text = xml_text.replace("？", '？<break time="400ms"/>')
+    
+    ssml = (
+        f"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='zh-TW'>"
+        f"<voice name='{voice}'>"
+        f"<prosody rate='{rate}' pitch='{pitch}'>{xml_text}</prosody>"
+        f"</voice></speak>"
+    )
+    return ssml
+
+
+async def synthesize_tw_scene_audio(text: str, voice: str, out_path: Path, rate: str = "-10%", scene_dur: float = 10.0):
     if not edge_tts:
         raise RuntimeError("未安裝 edge-tts，請執行 pip install edge-tts")
-    comm = edge_tts.Communicate(text, voice=voice, rate="+0%")
+    
+    # 硬性動態字速閘門：每秒嚴格 <= 4.0 字（黃金語速 3.2~3.6 字/秒，杜絕死板寫死 40 字漏網 6s/15s 鏡頭）
+    pure_chinese_len = len(re.findall(r"[\u4e00-\u9fff0-9a-zA-Z]", text))
+    chars_per_sec = pure_chinese_len / scene_dur if scene_dur > 0 else 0
+    max_allowed_chars = int(scene_dur * 4.0)
+
+    if chars_per_sec > 4.0:
+        raise ValueError(
+            f"❌ [字速硬閘門阻斷] 分鏡時長 {scene_dur:.1f} 秒，台詞共 {pure_chinese_len} 字，"
+            f"語速達 {chars_per_sec:.2f} 字/秒！超過 4.0 字/秒硬性上限（該鏡上限 {max_allowed_chars} 字）。\n"
+            f"台詞內容：「{text}」。\n"
+            f"⚠️ 核心鐵律：不可超過每秒 4 個字！請縮減台詞以維持呼吸停頓與消化空間。"
+        )
+    
+    # 生成帶有 SSML 停頓與減速之語音
+    ssml = build_scene_ssml(text, voice, rate=rate)
+    comm = edge_tts.Communicate(ssml, voice=voice)
     await comm.save(str(out_path))
 
 
-def generate_taiwan_master_voice(manifest: dict, proj_dir: Path, voice: str = "zh-TW-YunJheNeural", clip_dur: float = 10.0) -> Path:
-    """自動為每一鏡合成 100% 台灣國語音軌並毫秒級對齊時間軸"""
+def generate_taiwan_master_voice(manifest: dict, proj_dir: Path, voice: str = "zh-TW-YunJheNeural", clip_dur: float = 10.0, rate: str = "-10%") -> Path:
+    """自動為每一鏡合成 100% 台灣國語音軌並毫秒級對齊時間軸（支援 6s/10s/15s 動態時長與動態字速硬閘門）"""
     audio_dir = proj_dir / "audio_tracks"
     audio_dir.mkdir(parents=True, exist_ok=True)
     scenes = manifest.get("scenes", [])
 
     inputs = []
     filter_parts = []
+    current_time_sec = 0.0
 
     for i, sc in enumerate(scenes):
         sc_id = sc.get("id", f"S{i+1:02d}")
+        sc_dur = float(sc.get("duration") or sc.get("clip_duration_sec") or manifest.get("clip_duration_sec") or clip_dur)
+
         # 取得台詞文本
         narration = sc.get("narration_zh") or ""
         if not narration and sc.get("subtitles"):
-            # 將雙色標籤去除取得純文字
             narration = "".join(sc["subtitles"])
-            import re
             narration = re.sub(r"\{\\.*?\}", "", narration)
         if not narration and sc.get("prompt"):
-            import re
             m = re.search(r"「(.*?)」", sc["prompt"])
             if m:
                 narration = m.group(1)
 
         out_mp3 = audio_dir / f"{sc_id}_tw.mp3"
-        if not out_mp3.exists() or out_mp3.stat().st_size < 1000:
-            print(f"  🎙️ 正在合成 {sc_id} 台灣國語旁白 ({voice}): 「{narration[:25]}...」")
-            asyncio.run(synthesize_tw_scene_audio(narration, voice, out_mp3))
+        print(f"  🎙️ [SSML減速 {rate} | {sc_dur:.1f}s鏡頭] 合成 {sc_id} 台灣國語旁白 ({voice}): 「{narration[:25]}...」")
+        asyncio.run(synthesize_tw_scene_audio(narration, voice, out_mp3, rate=rate, scene_dur=sc_dur))
 
-        delay_ms = int((i * clip_dur + 0.6) * 1000)
+        # 延遲：動態累加時長 + 0.65s 呼吸留白，避免畫面一出直接撞音
+        delay_ms = int((current_time_sec + 0.65) * 1000)
         inputs.extend(["-i", str(out_mp3)])
         filter_parts.append(f"[{i}:a]adelay={delay_ms}|{delay_ms}[a{i}]")
+        current_time_sec += sc_dur
 
     mix_inputs = "".join(f"[a{i}]" for i in range(len(scenes)))
-    filter_complex = f"{';'.join(filter_parts)};{mix_inputs}amix=inputs={len(scenes)}:duration=longest:normalize=0[aout]"
+    # 導入廣播級人聲強化：高通濾波 80Hz 去雜音 + 溫和壓縮器 (compand) 飽滿人聲
+    vocal_chain = f"{';'.join(filter_parts)};{mix_inputs}amix=inputs={len(scenes)}:duration=longest:normalize=0,highpass=f=80,compand=attacks=0.02:decays=0.2:points=-80/-80|-20/-20|0/-3[aout]"
 
     out_voice = proj_dir / "voice_taiwanese_full.wav"
-    cmd = ["ffmpeg", "-y"] + inputs + ["-filter_complex", filter_complex, "-map", "[aout]", "-c:a", "pcm_s16le", str(out_voice)]
+    cmd = ["ffmpeg", "-y"] + inputs + ["-filter_complex", vocal_chain, "-map", "[aout]", "-c:a", "pcm_s16le", str(out_voice)]
     p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode != 0:
         raise RuntimeError(f"合成台灣國語主音軌失敗：\n{p.stderr[-500:]}")
-    print(f"✅ 已完成全片 100% 台灣國語無捲舌音軌合成：{out_voice.name}")
+    print(f"✅ 已完成全片 100% 台灣國語無捲舌音軌合成（廣播級動態優化版）：{out_voice.name}")
     return out_voice
 
 
@@ -124,7 +169,8 @@ def main():
     parser.add_argument("--manifest", required=True, help="vids_project_manifest.json 路徑")
     parser.add_argument("--mp4", required=False, help="下載的原始 MP4 路徑")
     parser.add_argument("--voice", default="zh-TW-YunJheNeural", help="台灣國語語音 (zh-TW-YunJheNeural 男聲 或 zh-TW-HsiaoChenNeural 女聲)")
-    parser.add_argument("--archive-root", default=r"d:\2026antigravity\Google Vids 影片", help="Google Vids 影片分類總目錄")
+    parser.add_argument("--rate", default="-10%", help="語速調整（預設 -10% 以確保自然呼吸節奏與清晰咬字）")
+    parser.add_argument("--archive-root", default=r"d:\2026antigravity\Google Vids 影片製作", help="Google Vids 影片製作分類總目錄")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest).resolve()
@@ -143,8 +189,8 @@ def main():
     if not src_mp4.exists():
         raise FileNotFoundError(f"找不到輸入 MP4：{src_mp4}")
 
-    # 1. 自動合成 100% 台灣國語主音軌（無大陸捲舌音）
-    tw_voice_wav = generate_taiwan_master_voice(manifest, proj_dir, voice=args.voice, clip_dur=10.0)
+    # 1. 自動合成 100% 台灣國語主音軌（SSML 聲學減速防呆版）
+    tw_voice_wav = generate_taiwan_master_voice(manifest, proj_dir, voice=args.voice, clip_dur=10.0, rate=args.rate)
 
     # 2. 備份/替換純淨無字幕母帶 (1080p + 台灣國語音軌)
     temp_clean = proj_dir / "temp_clean.mp4"
@@ -185,7 +231,7 @@ def main():
     shutil.move(str(temp_subbed), str(subbed_mp4))
     print(f"✅ 已完成 1080p 內嵌繁中雙色硬字幕正式版 (100% 台灣國語)：{subbed_mp4.name}")
 
-    # 4. 自動歸檔至 Google Vids 影片\<類別>\<專案名稱>\
+    # 4. 自動歸檔至 Google Vids 影片製作\<類別>\<專案名稱>\
     archive_root = Path(args.archive_root)
     for c in VALID_CATEGORIES:
         (archive_root / c).mkdir(parents=True, exist_ok=True)

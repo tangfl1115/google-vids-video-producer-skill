@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Version: 3.0.0
+// Version: 3.4.0
 // Changelog:
+//   - v3.4.0: 徹底廢除 Tab 巡歷迴圈，升級為 Zero-Tab 直點專屬插入按鈕與預覽對話框 (0 步直達)。
 //   - v3.0.0: 終極零踩坑極速版。
 //     1. 單一常駐 MCP Client 連線（消除每次呼叫重啟 Node 子程序之 8 秒延遲）。
 //     2. 根據單次 vids_observe 的『生成的影片：...』卡片索引 k (1-based)，直接計算精確 Tab 步數 (9 + 10*(k-1))，只在最後一步驗證『插入』焦點，徹底消除逐次 Tab 呼叫 vids_observe 造成的 4~5 分鐘卡頓！
@@ -18,6 +19,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--state' && argv[i + 1]) out.state = argv[++i]
     else if (argv[i] === '--bridge' && argv[i + 1]) out.bridge = argv[++i]
     else if (argv[i] === '--pair-code' && argv[i + 1]) out.pairCode = argv[++i]
+    else if (argv[i] === '--from' && argv[i + 1]) out.from = argv[++i]
   }
   return out
 }
@@ -211,38 +213,52 @@ async function insertClipFast(scene, scNum) {
     throw new Error(`找不到 ${scene.id} (${matchPrefix}) 的影片卡片`)
   }
 
-  // 直接計算從『建立』頁籤出發到第 (cardIdx+1) 部影片『插入』按鈕的目標步數：9 + 10 * cardIdx
-  const targetTabs = 9 + 10 * cardIdx
-  const createTab = obs.nodes.find(n => n.role === 'tab' && n.name === '建立')
+  // 1. 優先策略：直接點擊卡片下方對應的「插入」按鈕 (1步直點，免任何 Tab 遍歷)
+  const insertBtns = obs.nodes.filter(n => n.role === 'button' && n.name === '插入' && n.description === '插入影片')
+  const targetBtn = insertBtns[cardIdx]
+  if (targetBtn) {
+    console.log(`  ⚡ ${scene.id} 直點專屬「插入」按鈕 (ref=${targetBtn.ref})，0 步 Tab 完成！`)
+    await call('vids_click', {
+      sessionId: sid,
+      controlToken: ctok,
+      snapshotId: obs.snapshotId,
+      operation_id: randomUUID(),
+      nodeRef: targetBtn.ref
+    })
+    await sleep(2500)
+    console.log(`  🎬 ${scene.id} 已精準插入時間軸第 ${scNum} 場！`)
+    return
+  }
+
+  // 2. 備援策略（誤區 9 解法）：點擊卡片彈出預覽視窗，點擊視窗內「插入」按鈕
+  console.log(`  ⚡ ${scene.id} 直點影片卡片開啟預覽...`)
   await call('vids_click', {
     sessionId: sid,
     controlToken: ctok,
     snapshotId: obs.snapshotId,
     operation_id: randomUUID(),
-    nodeRef: createTab.ref
+    nodeRef: videoCards[cardIdx].ref
   })
-  await sleep(200)
-
-  console.log(`  ⚡ ${scene.id} 位於結果清單第 ${cardIdx + 1} 張，直接執行 ${targetTabs} 步極速 Tab 導航 (minimal detail)...`)
-  for (let i = 1; i <= targetTabs; i++) {
-    // 使用 maxNodes: 80 減少序列化開銷
-    const minObs = await observe(80)
-    await pressKeyWithSnap(minObs.snapshotId, 'Tab')
-  }
-
+  await sleep(600)
   obs = await observe()
-  const focused = obs.nodes.filter(n => n.states?.focused)
-  if (!focused.some(n => n.role === 'button' && n.name === '插入')) {
-    // 微調搜尋最多 6 步
-    for (let extra = 0; extra < 6; extra++) {
-      await pressKeyWithSnap(obs.snapshotId, 'Tab')
-      obs = await observe()
-      if (obs.nodes.some(n => n.states?.focused && n.role === 'button' && n.name === '插入')) break
-    }
+  const modalInsert = obs.nodes.find(n => n.role === 'button' && (n.name || '').includes('插入'))
+  if (modalInsert) {
+    await call('vids_click', {
+      sessionId: sid,
+      controlToken: ctok,
+      snapshotId: obs.snapshotId,
+      operation_id: randomUUID(),
+      nodeRef: modalInsert.ref
+    })
+    await sleep(2500)
+    console.log(`  🎬 ${scene.id} 已透過預覽對話框插入時間軸第 ${scNum} 場！`)
+    return
   }
+
+  // 3. 鍵盤最終備援：直接按 Enter
   await pressKeyWithSnap(obs.snapshotId, 'Enter')
-  await sleep(3000)
-  console.log(`  🎬 ${scene.id} 已成功插入第 ${scNum} 場！`)
+  await sleep(2500)
+  console.log(`  🎬 ${scene.id} 已精準插入時間軸第 ${scNum} 場！`)
 }
 
 async function exportMp4() {
@@ -288,7 +304,14 @@ try {
   await ensureAiVideoPanelOpen()
 
   const scenes = manifest.scenes || []
-  for (let i = 0; i < scenes.length; i++) {
+  let startIdx = 0
+  if (args.from) {
+    const raw = String(args.from).trim()
+    const num = raw.startsWith('S') ? parseInt(raw.slice(1), 10) : parseInt(raw, 10)
+    if (!isNaN(num) && num >= 1) startIdx = num - 1
+  }
+
+  for (let i = startIdx; i < scenes.length; i++) {
     const scNum = i + 1
     const sc = scenes[i]
     console.log(`\n==========================================`)

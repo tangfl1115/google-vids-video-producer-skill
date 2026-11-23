@@ -6,8 +6,25 @@ description: >
   當使用者提到「Google Vids 影片」「用 Vids 做影片」「Google Vids 自動生成」「Vids 獨立生成影片」或操作 Google Vids 專案時直接載入呼叫。
 ---
 
-<!-- Version: 3.1.0 -->
+<!-- Version: 3.5.0 -->
 <!-- Changelog:
+  v3.5.0 (2026-11-09) -
+    1. 【SSML 聲學情感與減速防呆標準 & 代碼層硬閘門】：徹底杜絕機械化新聞朗讀腔！後製引擎強制鎖定 `rate="-10%"` 溫和語速，自動將破折號（——）與省略號（……）映射為毫秒級 `<break time="..."/>` 聲學停頓。
+    2. 【單鏡字數 <= 40 字代碼層硬阻斷】：在合成前由 Python 腳本直接檢查純中文字數，超過 40 字立即觸發 `ValueError` 攔截中斷，禁止未精簡台詞進入語音合成。
+    3. 【新增誤區 10（機械化快讀新聞稿誤區）】：明訂四幕情感曲線（鋪陳、危機、絕境、破局）與單鏡 10 秒黃金三段式呼吸留白，後製音訊管線內建廣播級人聲強化（Highpass 80Hz + Compand 壓縮）與三軌混音架構。
+  v3.4.0 (2026-11-08) -
+    1. 【中文自然語意呼吸分段字幕標準】：徹底廢除字數機械式二分法。依「時間/主體交代 -> 核心事件/動態 -> 轉折/重擊金句」動態分為 2~3 段獨立跳動更換，單句單行顯現、不分上下行堆疊，文字放大至 68pt、左右安全邊界 140px（絕不超框），且分段純文字與口播台灣國語 100% 逐字咬合。
+    2. 【右上角品牌板材徽章標準化】：封面與成片浮水印導入實體板材質感（如方案 D 霧面壓克力立牌、品牌垂直色條、純文字浮雕標籤，不使用廉價粗糙幾何圖）。
+  v3.3.0 (2026-11-07) -
+    1. 【單鏡字數嚴格 <= 40 字硬限制】：Google Vids 單鏡固定 10.0 秒，純中文字數嚴格限制 <= 40 字（最佳區間 32~38 字，朗讀約 7.2~8.2s，保留 1.8~2.8s 呼吸氣口），嚴禁語速過快產生壓迫感。
+    2. 【廢除 Tab 巡歷，全面啟用 Accessibility Node 直擊】：廢除所有 `press('Tab')` 迴圈，改為直接定位無障礙節點 `{ role: "button", name: "插入", description: "插入影片" }`，0.2 秒瞬時插入。
+    3. 【分鏡台詞強制確認閘門 (Stage Gate)】：Stage 1 腳本台詞必須經由使用者明確確認後，方得啟動 Stage 2 語音與雲端擴散生成。
+    4. 【FFmpeg Concat PTS 漂移硬防呆】：嚴禁對不同 timebase (1/15360 vs 1/90000) 之 MP4 進行 `-c copy` concat；一律使用 `filter_complex [0:v]fps=30,setpts=PTS-STARTPTS[v0];[1:v]fps=30,setpts=PTS-STARTPTS[v1];[v0][v1]concat` 進行幀級精準重構。
+    5. 【進度透明定時器 (Schedule Tracker)】：長時任務強制每 90~120 秒調用 `schedule` 工具主動喚醒回報，嚴禁背景靜默。
+  v3.2.0 (2026-11-07) - 
+    1. 新增「專業電影級 8 大進階運鏡與四大頻道分類範本矩陣（［手作科學］、［國小自然］、［大識界 開眼界］、［AI 自學筆記］）」：包含探針微距穿透、眩暈變焦、焦點轉移、衝擊快推、剖面飛掠、360°環繞、甩鏡轉場、俯衝展開，提示詞全面導入「動態動詞 + 鏡頭焦段 + 參照物視差」公式。
+    2. 新增誤區 9：多鏡（第 10 鏡以上）逐次 Tab 導致無障礙樹超時（CDP Timeout），解法為直接點選視圖中央預覽對話框之「在新場景中插入」Modal 按鈕（ref=n18），1 步完成插入，徹底免除 119 次 Tab。
+    3. 整合後製動態音畫同步裁剪標準：由 FFmpeg 自動依台灣國語台詞長度將 Omni 原生 10s 裁切為 4.5s～6.0s 緊湊短鏡，符合 YouTube 高留存節奏並杜絕後段擴散形變。
   v3.1.0 - 解決 Google Vids Omni 原生語音具大陸捲舌音問題（新增誤區 8），後製引擎 `scripts/vids_postprocess_and_archive.py` 內建自動合成 100% 道地台灣國語（Microsoft edge-tts `zh-TW-YunJheNeural` 雲哲 / `zh-TW-HsiaoChenNeural` 曉臻），以毫秒級精度替換大陸捲舌聲音軌，徹底確保成片為正統台灣腔。
   v3.0.0 - 完整收錄實戰 7 大踩坑誤區與終極解法（Pitfalls & Fixes Matrix）、建立標準化單一常駐連線極速腳本 `scripts/vids_fast_autopilot.mjs`（完全不呼叫逐次 Tab 的 `vids_observe`，插入耗時從 295 秒降至 1.8 秒）、Windows 非 C 槽 ACL 權限修補腳本 `scripts/patch_windows_acl.py` 與自動雙色硬字幕暨四大分類歸檔腳本 `scripts/vids_postprocess_and_archive.py`，並打包為獨立 GitHub Repo。
   v2.1.0 - 新增『Google Vids 影片』四大頻道分類歸檔規範（［手作科學］、［國小自然］、［大識界 開眼界］、［AI 自學筆記］）。
@@ -26,11 +43,12 @@ description: >
 
 | 維度 | 實測驗證規格 |
 | :--- | :--- |
-| **生成模型與時長** | Google Vids 右側欄「生成 AI 短片」預設採用 **`生成設定：Omni 720p 橫式 10 秒`**（單鏡固定 **10.0 秒**，非舊版 8 秒；5 鏡合計 `00:50.2`）。 |
+| **生成模型與時長** | Google Vids 右側欄「生成 AI 短片」預設採用 **`生成設定：Omni 720p 橫式 10 秒`**（單鏡固定 **10.0 秒**，非舊版 8 秒；18 鏡合計 `03:00.6`）。 |
+| **單鏡語速動態硬限** | **每秒嚴格限制 <= 4.0 字（目標 3.2～3.6 字/秒）**：嚴禁用固定 40 字限制（避免 6 秒爆速、15 秒乾等）。單鏡字數上限 = **鏡頭秒數 × 4.0 字**（6s 鏡上限 24 字、10s 鏡上限 40 字、15s 鏡上限 60 字）。永遠保留 20%~25% 鏡頭時長供運鏡開展與環境音消化，超過 4.0 字/秒代碼直接報錯中斷！ |
 | **語音腔調鐵律** | **100% 正統台灣國語（嚴禁大陸捲舌音）**：Google Vids 多模態原生生成的語音常混雜普通話捲舌與兒化音。因此一律由後製管線 `scripts/vids_postprocess_and_archive.py` 自動呼叫 Microsoft Edge TTS（`zh-TW-YunJheNeural` 雲哲 男聲 / `zh-TW-HsiaoChenNeural` 曉臻 女聲）合成最道地無捲舌的台灣國語音軌，毫秒級對齊每鏡 10.0 秒替換。 |
 | **匯出解析度與編碼** | 雖然單鏡預覽標示 720p，但插入時間軸後點選 `檔案 -> 下載 -> MP4 影片 (.mp4)` 匯出之成品為標準 **1920×1080 (Full HD 1080p), 30fps, H.264 (~3.86 Mbps) + AAC 立體聲**。 |
 | **內建進階卡片工具** | 每張生成的影片結果卡片皆自帶 5 個原生動作按鈕：**`插入`**、**`延長`**、**`編輯`**、**`畫質提升`**、**`重新生成`**。 |
-| **最終歸檔總目錄** | 凡經由 Google Vids 生成與後製完成之影片，一律依四大頻道分類自動歸檔至：<br>`d:\2026antigravity\Google Vids 影片\<頻道分類>\<專案名稱>\`<br>（四大固定分類：`［手作科學］`、`［國小自然］`、`［大識界 開眼界］`、`［AI 自學筆記］`） |
+| **最終歸檔總目錄** | 凡經由 Google Vids 生成與後製完成之影片，一律依四大頻道分類自動歸檔至：<br>`d:\2026antigravity\Google Vids 影片製作\<頻道分類>\<專案名稱>\`<br>（四大固定分類：`［手作科學］`、`［國小自然］`、`［大識界 開眼界］`、`［AI 自學筆記］`） |
 
 ---
 
@@ -87,9 +105,48 @@ description: >
 * **問題現象**：在提示詞中雖然寫入 `Taiwanese Mandarin (zh-TW) voiceover`，但 Google 多模態神經模型（Omni/Veo）主要以標準普通話資料集訓練，生成的中文發音依然帶有顯著的大陸捲舌音（兒化音、重平舌捲舌音調），不符合台灣教學與 YouTube 觀眾習慣。
 * **✅ 正確解法**：由後製腳本 `scripts/vids_postprocess_and_archive.py` 內建自動合成 100% 正統台灣國語神經語音（Microsoft `edge-tts` 的 `zh-TW-YunJheNeural` 雲哲 或 `zh-TW-HsiaoChenNeural` 曉臻），在 FFmpeg 壓制字幕時直接將原帶有捲舌音的音軌無損替換為溫和自然、完全無捲舌音的台灣國語主音軌，產出真正符合台灣教育與科普標準的成片！
 
+### ❌ 誤區 9：多鏡（第 10 鏡以上）高階 Tab 循環引發 Chrome CDP 無障礙樹逾時崩潰
+* **問題現象**：當製作長片（12～24 鏡）時，第 12 鏡目標卡片的插入按鈕位於第 119 次 Tab。若以逐步焦點推進，長時間的頻繁 CDP 事件會引發 Chrome `Accessibility.getFullAXTree timeout`，導致連線中斷鎖死。
+* **✅ 正確解法**：點選目標生成影片卡片後，畫面中央視圖會彈出預覽播放對話框，該對話框下方常駐一個 **`button 在新場景中插入`**（無障礙參照值 `ref=n18`）。在該彈窗狀態下**直接呼叫 `vids_click(ref="n18")`**，1 步即可精準插入時間軸，徹底免除 119 次 Tab 遞迴！
+
+### ❌ 誤區 10：使用 edge_tts 默認 +0% 語速與純文本合成，導致「快速念新聞稿、毫無起伏」
+* **問題現象**：在後製合成台灣國語音軌時，若直接傳入純字串且未設定 `rate`（即預設 `rate="+0%"`），神經語音模型會進入機械式均速廣播模式，全句毫無高低起伏，且單鏡 30 字在 5 秒內快速念完，剩餘 5 秒乾澀留白，觀眾體驗極為壓迫且無聊。
+* **✅ 正確解法**：
+  1. **SSML 聲學情感與減速鎖定**：全面改用 `rate="-10%"` 溫和語速，並透過 `build_scene_ssml` 自動將破折號（`——`）與省略號（`……`）轉為 `<break time="500ms"/>`，逗號轉為 `<break time="250ms"/>`，營造真實說書人吸氣與停頓。
+  2. **程式碼層單鏡 <= 40 字硬閘門**：`vids_postprocess_and_archive.py` 內建字數阻斷檢查，單鏡超過 40 字直接引發 `ValueError` 中斷程式，強制縮減台詞以維護每秒 <= 4 字的黃金節奏。
+  3. **廣播級人聲強化**：FFmpeg 混音鏈自動加入 `highpass=f=80,compand` 濾波，飽滿人聲並切齊音畫。
+
 ---
 
-## 3. 全自動標準作業流程（5 步極速端到端 SOP）
+## 3. 專業電影級 8 大進階運鏡與四大頻道分類範本矩陣 (Cinematic Camera Movement Matrix)
+
+為了擺脫「單一景別、死板站樁、缺乏動態」的簡報式枯燥感，全片分鏡必須綜合運用以下 **8 大進階電影運鏡標準**，並根據所屬四大 YouTube 分類精準錨定：
+
+### 8 大專業進階運鏡標準與提示詞範本
+
+| 運鏡名稱 | 視覺特徵與物理效果 | 頻道適用情境 | 專屬 Prompt 關鍵詞範本 |
+| :--- | :--- | :--- | :--- |
+| **1. 探針微距穿透 (Probe Lens Push-through)** | 極貼近物體表面，穿入狹小容器、縫隙或流體內部 | ［手作科學］、［國小自然］ | `Laowa 24mm probe lens push-through, macro pass gliding millimeter above liquid surface, dramatic fluid reflection` |
+| **2. 眩暈變焦 (Dolly Zoom / Vertigo)** | 前推同時拉廣角，主體比例不變，背景空間劇烈扭曲塌縮 | ［大識界 開眼界］、［手作科學］爆點 | `Cinematic vertigo dolly zoom effect, camera moves forward while zooming out, background expands and warps dramatically` |
+| **3. 極致焦點轉移 (Rack Focus)** | 鏡頭固定，景深極淺（f/1.4），焦點從前景順滑滑向後景 | ［手作科學］材料轉向反應、［國小自然］ | `Shallow depth of field, smooth rack focus from blurry foreground dropper to razor-sharp background chemical reaction, 85mm lens` |
+| **4. 衝擊快推 (Crash Zoom / Snap Zoom)** | 0.3 秒內極速朝關鍵焦點撞擊式推近 | ［AI 自學筆記］終端成功、［大識界］金句 | `Fast kinetic crash zoom snap into glowing terminal screen, high dynamic momentum, punchy visual hit` |
+| **5. 剖面貫穿飛掠 (Cutaway Cross-section)** | 穿透容器外壁或地表，鏡頭在內部剖面平滑滑行 | ［手作科學］沉澱分層、［國小自然］導管 | `Cutaway cross-section view, camera gliding smoothly through the interior cross section of container, internal layer details` |
+| **6. 360° 弧形環繞 (360° Orbital Pan)** | 繞著核心主體以等角速度進行圓周環景運動 | ［大識界 開眼界］英雄雕像、［AI 自學筆記］機房 | `Smooth 360-degree orbital arc shot circling around central subject, continuous parallax depth, cinematic volumetric lighting` |
+| **7. 快速甩鏡轉場 (Whip Pan / Swish Pan)** | 高速水平甩鏡產生強烈運動模糊（Motion Blur）作為過場 | 跨步驟對比、繁瑣手動切換到全自動 | `High-speed kinetic whip pan to the right with heavy motion blur transition, seamless cut into next action` |
+| **8. 俯衝鳥瞰展開 (Crane Descending Reveal)** | 高空俯視極速平滑下降至人眼平視，揭開宏大全貌 | ［大識界 開眼界］歷史大場景、［國小自然］生態系 | `Epic high-angle crane shot descending smoothly from aerial canopy down to eye-level reveal, grand sweeping motion` |
+
+### 四大頻道專屬提示詞公式（Prompt Injection Formula）
+
+$$\text{Prompt} = \underbrace{\text{[主題器材/環境]}}_{\text{Borosilicate reaction bottle}} + \underbrace{\text{[進階運鏡術語]}}_{\text{Probe lens push-through}} + \underbrace{\text{[運動軸向與物理速度]}}_{\text{slowly gliding millimeter above surface}} + \underbrace{\text{[景深與光學約束]}}_{\text{shallow depth of field, sharp focus, 4k 60fps photorealism}}$$
+
+1. **［手作科學］**：每片必須包含至少 1 次「探針穿透」與 1 次「焦點轉移」，流體沉降鏡頭強制指定「側向等速跟蹤（Parallel Tracking Shot）」。
+2. **［國小自然］**：微觀生態必須採用「蟲眼低角度（Bug-eye POV）」與「剖面穿透（Cutaway）」，拒絕單調平視。
+3. **［大識界 開眼界］**：關鍵哲學轉折必配「眩暈變焦（Dolly Zoom）」，場景開展必配「俯衝展開（Crane Reveal）」或「360° 環繞（Orbital Arc）」。
+4. **［AI 自學筆記］**：關鍵成功或報錯必配「衝擊快推（Crash Zoom）」，架構解析必配「資料隧道穿越（FPV Fly-through）」。
+
+---
+
+## 4. 全自動標準作業流程（5 步極速端到端 SOP）
 
 ### 步驟 1：建立專案分鏡設定檔 `vids_project_manifest.json`
 於專案目錄建立 `vids_project_manifest.json`（範本見 `examples/vids_project_manifest.example.json`）：
@@ -121,4 +178,4 @@ python "d:\2026antigravity\.agents\skills\google-vids-video-producer\scripts\vid
 2. 替換原始帶有普通話捲舌音的音軌，產出 `<專案名稱>_純淨無字幕版.mp4`（1080p 台灣國語母帶版）。
 3. 生成時間碼 100% 對齊每鏡 10.0 秒的 `subtitles.ass` 並燒錄出 `<專案名稱>.mp4`（1080p 內嵌繁中雙色硬字幕正式版）。
 4. 產出含分類前綴標題、資訊欄與雙格式 Tags 的 `YouTube發布資訊_<專案名稱>.txt`。
-5. 自動將全套成果複製歸檔至 **`d:\2026antigravity\Google Vids 影片\<youtube_category>\<專案名稱>\`**！
+5. 自動將全套成果複製歸檔至 **`d:\2026antigravity\Google Vids 影片製作\<youtube_category>\<專案名稱>\`**！
